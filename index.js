@@ -33,13 +33,17 @@ async function run() {
 
     const mealDB = client.db("mealDB");
     const userCollection = mealDB.collection("users");
+    const mealCollection = mealDB.collection("meals");
 
     //admin middleware
-    const verifyAdmin = (req, res, next) => {
+    const verifyAdmin = async (req, res, next) => {
       const { email } = req.user;
       const query = { email };
-      const userData = userCollection.findOne(query);
-      console.log(userData);
+      const userData = await userCollection.findOne(query);
+      if (userData.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access 44" });
+      }
+      next();
     };
 
     //jwt middleware
@@ -88,6 +92,12 @@ async function run() {
       const query = { email };
       const user = await userCollection.findOne(query);
       res.send({ admin: user?.role === "admin" });
+    });
+
+    app.post("/meals", verifyToken, verifyAdmin, async (req, res) => {
+      const meal = req.body;
+      const result = await mealCollection.insertOne(meal);
+      res.send(result);
     });
   } finally {
     // await client.close();
