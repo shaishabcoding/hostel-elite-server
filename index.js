@@ -104,6 +104,13 @@ async function run() {
       const result = await mealCollection.find().toArray();
       res.send(result);
     });
+
+    app.delete("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const result = await mealCollection.deleteOne(filter);
+      res.send(result);
+    });
   } finally {
     // await client.close();
   }
