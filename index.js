@@ -44,13 +44,15 @@ async function run() {
 
     //jwt middleware
     const verifyToken = (req, res, next) => {
-      const token = req?.cookies?.token;
+      const token = req.headers.authorization.split(" ")[1];
       if (!token) {
-        return res.status(401).send({ message: "unauthorized access" });
+        return res.status(401).send({ message: "unauthorized access 49" });
       }
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: "unauthorized access" });
+          console.log("err 56");
+
+          return res.status(401).send({ message: "unauthorized access 55" });
         }
         req.user = { email: decoded };
         next();
@@ -78,6 +80,14 @@ async function run() {
       }
       const result = await userCollection.insertOne(user);
       res.send({ success: true });
+    });
+
+    // admin related api
+    app.get("/users/admin", verifyToken, async (req, res) => {
+      const { email } = req.user;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      res.send({ admin: user?.role === "admin" });
     });
   } finally {
     // await client.close();
