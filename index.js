@@ -99,6 +99,11 @@ async function run() {
       const result = await mealCollection.insertOne(meal);
       res.send(result);
     });
+
+    app.get("/meals", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await mealCollection.find().toArray();
+      res.send(result);
+    });
   } finally {
     // await client.close();
   }
