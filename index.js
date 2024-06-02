@@ -105,6 +105,29 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/meals/:id", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await mealCollection.findOne(query, {
+        projection: {
+          _id: 0,
+          reviews: 0,
+        },
+      });
+      res.send(result);
+    });
+
+    app.put("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const { id } = req.params;
+      const meal = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedMeal = {
+        $set: meal,
+      };
+      const result = await mealCollection.updateOne(query, updatedMeal);
+      res.send(result);
+    });
+
     app.delete("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
