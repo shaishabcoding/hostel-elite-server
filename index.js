@@ -101,7 +101,24 @@ async function run() {
     });
 
     app.get("/meals", verifyToken, verifyAdmin, async (req, res) => {
-      const result = await mealCollection.find().toArray();
+      const sort = {};
+      if (req.query.sort === "likes") {
+        sort.likes = -1;
+      } else if ((req.query.sort = "reviews")) {
+        sort.reviewsCount = -1;
+      }
+      const result = await mealCollection
+        .aggregate([
+          {
+            $addFields: {
+              reviewsCount: { $size: "$reviews" }, // Add a field for reviews count
+            },
+          },
+          {
+            $sort: sort, // Sort by the specified criteria
+          },
+        ])
+        .toArray();
       res.send(result);
     });
 
