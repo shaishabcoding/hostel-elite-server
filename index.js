@@ -75,6 +75,16 @@ async function run() {
     //jwt routes -- end
 
     // user related api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ success: true });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send({ success: true });
+    });
 
     // admin related api
     app.get(
@@ -120,6 +130,14 @@ async function run() {
       } else {
         result = await userCollection.find().toArray();
       }
+      res.send(result);
+    });
+
+    app.get("/users/profile", verifyToken, async (req, res) => {
+      const query = { email: req.user.email };
+      const result = await userCollection.findOne(query);
+      const mealCount = await mealCollection.countDocuments(query);
+      result.mealCount = mealCount;
       res.send(result);
     });
 
