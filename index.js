@@ -190,6 +190,16 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/meals/category/:category", async (req, res) => {
+      const { category } = req.params;
+      let query = {};
+      if (category !== "All") {
+        query = { category };
+      }
+      const result = await mealCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/meals/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
