@@ -75,24 +75,74 @@ async function run() {
     //jwt routes -- end
 
     // user related api
-    app.post("/users", async (req, res) => {
-      const user = req.body;
-      const query = { email: user.email };
-      const existingUser = await userCollection.findOne(query);
-      if (existingUser) {
-        return res.send({ success: true });
-      }
-      const result = await userCollection.insertOne(user);
-      res.send({ success: true });
-    });
 
     // admin related api
+    app.get(
+      "/users/suggestions",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { query } = req.query;
+          const suggestions = await userCollection
+            .find(
+              {
+                $or: [
+                  { username: { $regex: query, $options: "i" } },
+                  { email: { $regex: query, $options: "i" } },
+                ],
+              },
+              {
+                limit: 10,
+              }
+            )
+            .toArray();
+
+          res.send(suggestions);
+        } catch (err) {
+          res.status(500).send({ err });
+        }
+      }
+    );
+
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+      const { query } = req.query;
+      let result = [];
+      if (query) {
+        result = await userCollection
+          .find({
+            $or: [
+              { username: { $regex: query, $options: "i" } },
+              { email: { $regex: query, $options: "i" } },
+            ],
+          })
+          .toArray();
+      } else {
+        result = await userCollection.find().toArray();
+      }
+      res.send(result);
+    });
+
     app.get("/users/admin", verifyToken, async (req, res) => {
       const { email } = req.user;
       const query = { email };
       const user = await userCollection.findOne(query);
       res.send({ admin: user?.role === "admin" });
     });
+
+    app.put(
+      "/users/admin/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { email } = req.params;
+        const query = { email };
+        const result = await userCollection.updateOne(query, {
+          $set: { role: "admin" },
+        });
+        res.send(result);
+      }
+    );
 
     app.post("/meals", verifyToken, verifyAdmin, async (req, res) => {
       const meal = req.body;
