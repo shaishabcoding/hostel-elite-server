@@ -206,7 +206,6 @@ async function run() {
       const result = await mealCollection.findOne(query, {
         projection: {
           _id: 0,
-          reviews: 0,
         },
       });
       res.send(result);
@@ -220,6 +219,34 @@ async function run() {
         $set: meal,
       };
       const result = await mealCollection.updateOne(query, updatedMeal);
+      res.send(result);
+    });
+
+    app.put("/meals/:id/review", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const { review } = req.body;
+      const { email } = req.user;
+      const query = { _id: new ObjectId(id) };
+      const meal = await mealCollection.findOne(query);
+
+      const existingReviewIndex = meal.reviews.findIndex(
+        (meal) => meal.email === email
+      );
+
+      if (existingReviewIndex !== -1) {
+        // Update the existing review
+        meal.reviews[existingReviewIndex] = { email, review };
+      } else {
+        // Add the new review
+        meal.reviews.push({ email, review });
+      }
+      const updatedMeal = {
+        ...meal,
+        reviews: meal.reviews,
+      };
+      const result = await mealCollection.updateOne(query, {
+        $set: updatedMeal,
+      });
       res.send(result);
     });
 
