@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SK_KEY);
 const { MongoClient, ObjectId, ServerApiVersion } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
@@ -200,7 +201,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/meals/:id", verifyToken, async (req, res) => {
+    app.get("/meals/:id", async (req, res) => {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
       const result = await mealCollection.findOne(query, {
@@ -208,6 +209,16 @@ async function run() {
           _id: 0,
         },
       });
+      res.send(result);
+    });
+
+    app.put("/meals/:id/like", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $inc: { likes: 1 },
+      };
+      const result = await mealCollection.updateOne(query, update);
       res.send(result);
     });
 
@@ -255,6 +266,23 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const result = await mealCollection.deleteOne(filter);
       res.send(result);
+    });
+
+    // payment related api
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: +price,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
   } finally {
     // await client.close();
