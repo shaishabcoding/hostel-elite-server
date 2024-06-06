@@ -170,6 +170,26 @@ async function run() {
       res.send(userReviews);
     });
 
+    app.delete("/meals/:id/review", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const { email } = req.user;
+
+      const meal = await mealCollection.findOne({ _id: new ObjectId(id) });
+
+      const reviewIndex = meal.reviews.findIndex(
+        (review) => review.email === email
+      );
+
+      meal.reviews.splice(reviewIndex, 1);
+
+      const result = await mealCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { reviews: meal.reviews } }
+      );
+
+      res.send(result);
+    });
+
     app.put(
       "/users/admin/:email",
       verifyToken,
