@@ -150,6 +150,26 @@ async function run() {
       res.send({ admin: user?.role === "admin" });
     });
 
+    app.get("/users/reviews", verifyToken, async (req, res) => {
+      const { email } = req.user;
+      const query = {
+        reviews: {
+          $elemMatch: {
+            email: email,
+          },
+        },
+      };
+      const meals = await mealCollection.find(query).toArray();
+      const userReviews = meals.map((meal) => {
+        return {
+          ...meal,
+          reviews: meal.reviews.filter((review) => review.email === email)[0],
+        };
+      });
+
+      res.send(userReviews);
+    });
+
     app.put(
       "/users/admin/:email",
       verifyToken,
