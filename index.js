@@ -35,6 +35,7 @@ async function run() {
     const mealDB = client.db("mealDB");
     const userCollection = mealDB.collection("users");
     const mealCollection = mealDB.collection("meals");
+    const paymentCollection = mealDB.collection("payments");
 
     //admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -269,20 +270,30 @@ async function run() {
     });
 
     // payment related api
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: +price,
         currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ["card"],
       });
 
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
+    });
+
+    app.post("/payments", verifyToken, async (req, res) => {
+      const payment = req.body;
+      const filter = { email: req.user.email };
+      const result = await paymentCollection.insertOne(payment);
+      const result2 = await userCollection.updateOne(filter, {
+        $set: {
+          badge: payment.badge,
+        },
+      });
+      res.send({ result, result2 });
     });
   } finally {
     // await client.close();
