@@ -270,6 +270,13 @@ async function run() {
     });
 
     // payment related api
+    app.get("/payment/history", verifyToken, async (req, res) => {
+      const { email } = req.user;
+      const query = { email };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
 
