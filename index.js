@@ -35,6 +35,7 @@ async function run() {
     const mealDB = client.db("mealDB");
     const userCollection = mealDB.collection("users");
     const mealCollection = mealDB.collection("meals");
+    const upcomingMealsCollection = mealDB.collection("upcomingMeals");
     const mealRequestCollection = mealDB.collection("mealsRequest");
     const paymentCollection = mealDB.collection("payments");
 
@@ -221,6 +222,12 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/meals/upcoming", verifyToken, verifyAdmin, async (req, res) => {
+      const meal = req.body;
+      const result = await upcomingMealsCollection.insertOne(meal);
+      res.send(result);
+    });
+
     app.get("/meals/request", verifyToken, verifyPkg, async (req, res) => {
       const preRequestMeal = await mealRequestCollection
         .find({
@@ -301,6 +308,28 @@ async function run() {
         sort.reviewsCount = -1;
       }
       const result = await mealCollection
+        .aggregate([
+          {
+            $addFields: {
+              reviewsCount: { $size: "$reviews" }, // Add a field for reviews count
+            },
+          },
+          {
+            $sort: sort, // Sort by the specified criteria
+          },
+        ])
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/meals/upcoming", verifyToken, verifyAdmin, async (req, res) => {
+      const sort = {};
+      if (req.query.sort === "likes") {
+        sort.likes = -1;
+      } else if ((req.query.sort = "reviews")) {
+        sort.reviewsCount = -1;
+      }
+      const result = await upcomingMealsCollection
         .aggregate([
           {
             $addFields: {
@@ -402,6 +431,18 @@ async function run() {
       const result = await mealCollection.deleteOne(filter);
       res.send(result);
     });
+
+    app.delete(
+      "/meals/upcoming/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { id } = req.params;
+        const filter = { _id: new ObjectId(id) };
+        const result = await upcomingMealsCollection.deleteOne(filter);
+        res.send(result);
+      }
+    );
 
     app.delete("/meals/request/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
