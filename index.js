@@ -360,6 +360,13 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/meals/request/:id", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const result = await mealRequestCollection.deleteOne(filter);
+      res.send(result);
+    });
+
     // payment related api
     app.get("/payment/history", verifyToken, async (req, res) => {
       const { email } = req.user;
