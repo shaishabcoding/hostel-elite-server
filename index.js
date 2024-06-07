@@ -385,6 +385,17 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/meals/serve/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const { id } = req.params;
+      const filter = { _id: new ObjectId(id) };
+      const result = await mealRequestCollection.updateOne(filter, {
+        $set: {
+          status: "Delivered",
+        },
+      });
+      res.send(result);
+    });
+
     app.delete("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = { _id: new ObjectId(id) };
