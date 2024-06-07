@@ -240,7 +240,39 @@ async function run() {
               },
             }
           );
-          return { ...meal, ...preRequestMeal[idx] };
+          if (meal) {
+            return { ...meal, ...preRequestMeal[idx] };
+          } else {
+            await mealRequestCollection.deleteOne({ _id: pMeal._id });
+            return null;
+          }
+        })
+      );
+
+      res.send(meals);
+    });
+
+    app.get("/meals/serve", verifyToken, verifyAdmin, async (req, res) => {
+      const preRequestMeal = await mealRequestCollection.find().toArray();
+
+      const meals = await Promise.all(
+        preRequestMeal.map(async (pMeal, idx) => {
+          const meal = await mealCollection.findOne(
+            {
+              _id: new ObjectId(pMeal.mealId),
+            },
+            {
+              projection: {
+                _id: 0,
+              },
+            }
+          );
+          if (meal) {
+            return { ...meal, ...preRequestMeal[idx] };
+          } else {
+            await mealRequestCollection.deleteOne({ _id: pMeal._id });
+            return null;
+          }
         })
       );
 
