@@ -221,6 +221,32 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/meals/request", verifyToken, verifyPkg, async (req, res) => {
+      const preRequestMeal = await mealRequestCollection
+        .find({
+          email: req.user.email,
+        })
+        .toArray();
+
+      const meals = await Promise.all(
+        preRequestMeal.map(async (pMeal, idx) => {
+          const meal = await mealCollection.findOne(
+            {
+              _id: new ObjectId(pMeal.mealId),
+            },
+            {
+              projection: {
+                _id: 0,
+              },
+            }
+          );
+          return { ...meal, ...preRequestMeal[idx] };
+        })
+      );
+
+      res.send(meals);
+    });
+
     app.post("/meals/request", verifyToken, verifyPkg, async (req, res) => {
       const meal = req.body;
       meal.email = req.user.email;
