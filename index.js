@@ -35,6 +35,7 @@ async function run() {
     const mealDB = client.db("mealDB");
     const userCollection = mealDB.collection("users");
     const mealCollection = mealDB.collection("meals");
+    const mealRequestCollection = mealDB.collection("mealsRequest");
     const paymentCollection = mealDB.collection("payments");
 
     //admin middleware
@@ -66,6 +67,16 @@ async function run() {
     };
 
     //jwt routes -- start
+
+    const verifyPkg = async (req, res, next) => {
+      const { email } = req.user;
+      const query = { email };
+      const userData = await userCollection.findOne(query);
+      if (userData.badge === "Bronze") {
+        return res.status(402).send({ message: "Payment Required 75" });
+      }
+      next();
+    };
 
     //creating Token
     app.post("/jwt", async (req, res) => {
@@ -137,9 +148,9 @@ async function run() {
 
     app.get("/users/profile", verifyToken, async (req, res) => {
       const query = { email: req.user.email };
-      const result = await userCollection.findOne(query);
+      const result = (await userCollection.findOne(query)) || {};
       const mealCount = await mealCollection.countDocuments(query);
-      result.mealCount = mealCount;
+      result.mealCount = mealCount || 0;
       res.send(result);
     });
 
@@ -207,6 +218,20 @@ async function run() {
     app.post("/meals", verifyToken, verifyAdmin, async (req, res) => {
       const meal = req.body;
       const result = await mealCollection.insertOne(meal);
+      res.send(result);
+    });
+
+    app.post("/meals/request", verifyToken, verifyPkg, async (req, res) => {
+      const meal = req.body;
+      meal.email = req.user.email;
+      const preRequestMeal = await mealRequestCollection.findOne({
+        email: req.body.email,
+        mealId: meal.mealId,
+      });
+      if (preRequestMeal) {
+        return res.send({ message: "You have already request this meal" });
+      }
+      const result = await mealRequestCollection.insertOne(meal);
       res.send(result);
     });
 
