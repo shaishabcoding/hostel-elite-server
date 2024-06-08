@@ -304,14 +304,16 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/meals", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/meals", verifyToken, async (req, res) => {
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const offset = parseInt(req.query.offset, 10) || 0;
       const sort = {};
       if (req.query.sort === "likes") {
         sort.likes = -1;
       } else if ((req.query.sort = "reviews")) {
         sort.reviewsCount = -1;
       }
-      const result = await mealCollection
+      const meals = await mealCollection
         .aggregate([
           {
             $addFields: {
@@ -321,9 +323,16 @@ async function run() {
           {
             $sort: sort, // Sort by the specified criteria
           },
+          {
+            $skip: offset, // Skip the first `offset` documents
+          },
+          {
+            $limit: limit, // Limit the number of documents returned
+          },
         ])
         .toArray();
-      res.send(result);
+      const mealsCount = await mealCollection.countDocuments();
+      res.send({ meals, mealsCount });
     });
 
     app.get("/meals/upcoming", verifyToken, async (req, res) => {
@@ -354,7 +363,7 @@ async function run() {
       if (category !== "All") {
         query = { category };
       }
-      const result = await mealCollection.find(query).toArray();
+      const result = await mealCollection.find(query).limit(9).toArray();
       res.send(result);
     });
 
