@@ -307,6 +307,26 @@ async function run() {
     app.get("/meals", verifyToken, async (req, res) => {
       const limit = parseInt(req.query.limit, 10) || 10;
       const offset = parseInt(req.query.offset, 10) || 0;
+      const { category, minPrice, maxPrice } = req.query;
+
+      const matchStage = {};
+
+      if (category && category !== "All") {
+        matchStage.category = category;
+      }
+
+      const priceFilter = {};
+
+      priceFilter.$gte = parseInt(minPrice);
+
+      if (+maxPrice !== 0) {
+        priceFilter.$lte = parseInt(maxPrice);
+      }
+
+      if (Object.keys(priceFilter).length > 0) {
+        matchStage.price = priceFilter;
+      }
+
       const sort = {};
       if (req.query.sort === "likes") {
         sort.likes = -1;
@@ -315,6 +335,9 @@ async function run() {
       }
       const meals = await mealCollection
         .aggregate([
+          {
+            $match: matchStage, // Match by category if specified
+          },
           {
             $addFields: {
               reviewsCount: { $size: "$reviews" }, // Add a field for reviews count
