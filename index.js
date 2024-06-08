@@ -326,7 +326,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/meals/upcoming", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/meals/upcoming", verifyToken, async (req, res) => {
       const sort = {};
       if (req.query.sort === "likes") {
         sort.likes = -1;
@@ -406,31 +406,53 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/meals/upcoming/:id/like", verifyToken, async (req, res) => {
-      const mealId = req.params.id;
-      const userEmail = req.user.email;
+    app.put(
+      "/meals/upcoming/:id/like",
+      verifyToken,
+      verifyPkg,
+      async (req, res) => {
+        const mealId = req.params.id;
+        const userEmail = req.user.email;
 
-      const meal = await upcomingMealsCollection.findOne({
-        _id: new ObjectId(mealId),
-      });
+        const meal = await upcomingMealsCollection.findOne({
+          _id: new ObjectId(mealId),
+        });
 
-      if (meal.likedBy && meal.likedBy.includes(userEmail)) {
-        return res
-          .status(400)
-          .json({ message: "You have already liked this meal" });
+        if (meal.likedBy && meal.likedBy.includes(userEmail)) {
+          return res
+            .status(400)
+            .json({ message: "You have already liked this meal" });
+        }
+
+        const update = {
+          $inc: { likes: 1 },
+          $push: { likedBy: userEmail },
+        };
+
+        const result = await upcomingMealsCollection.updateOne(
+          { _id: new ObjectId(mealId) },
+          update
+        );
+
+        if (result.matchedCount > 0) {
+          const updatedMeal = await upcomingMealsCollection.findOne({
+            _id: new ObjectId(mealId),
+          });
+
+          if (updatedMeal.likes >= 10) {
+            await upcomingMealsCollection.deleteOne({
+              _id: new ObjectId(mealId),
+            });
+
+            const result = await mealCollection.insertOne(updatedMeal);
+
+            return res.send(result);
+          }
+        }
+
+        res.send(result);
       }
-
-      const update = {
-        $inc: { likes: 1 },
-        $push: { likedBy: userEmail },
-      };
-      const result = await upcomingMealsCollection.updateOne(
-        { _id: new ObjectId(mealId) },
-        update
-      );
-
-      res.send(result);
-    });
+    );
 
     app.put("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
