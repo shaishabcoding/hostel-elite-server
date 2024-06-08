@@ -25,11 +25,13 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     //commit this line when deploy on vercel -- start
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    if (process.env.NODE_ENV !== "production") {
+      await client.connect();
+      await client.db("admin").command({ ping: 1 });
+      console.log(
+        "Pinged your deployment. You successfully connected to MongoDB!"
+      );
+    }
     //commit this line when deploy on vercel -- end
 
     const mealDB = client.db("mealDB");
@@ -259,7 +261,7 @@ async function run() {
       res.send(meals);
     });
 
-    app.get("/meals/serve", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/meals/serve", verifyToken, async (req, res) => {
       const preRequestMeal = await mealRequestCollection.find().toArray();
 
       const meals = await Promise.all(
@@ -294,7 +296,9 @@ async function run() {
         mealId: meal.mealId,
       });
       if (preRequestMeal) {
-        return res.send({ message: "You have already request this meal" });
+        return res
+          .status(400)
+          .send({ message: "You have already request this meal" });
       }
       const result = await mealRequestCollection.insertOne(meal);
       res.send(result);
@@ -365,13 +369,66 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/meals/:id/like", verifyToken, async (req, res) => {
+    app.get("/meals/upcoming/:id", async (req, res) => {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
+      const result = await upcomingMealsCollection.findOne(query, {
+        projection: {
+          _id: 0,
+        },
+      });
+      res.send(result);
+    });
+
+    app.put("/meals/:id/like", verifyToken, async (req, res) => {
+      const mealId = req.params.id;
+      const userEmail = req.user.email;
+
+      const meal = await mealCollection.findOne({
+        _id: new ObjectId(mealId),
+      });
+
+      if (meal.likedBy && meal.likedBy.includes(userEmail)) {
+        return res
+          .status(400)
+          .json({ message: "You have already liked this meal" });
+      }
+
       const update = {
         $inc: { likes: 1 },
+        $push: { likedBy: userEmail },
       };
-      const result = await mealCollection.updateOne(query, update);
+      const result = await mealCollection.updateOne(
+        { _id: new ObjectId(mealId) },
+        update
+      );
+
+      res.send(result);
+    });
+
+    app.put("/meals/upcoming/:id/like", verifyToken, async (req, res) => {
+      const mealId = req.params.id;
+      const userEmail = req.user.email;
+
+      const meal = await upcomingMealsCollection.findOne({
+        _id: new ObjectId(mealId),
+      });
+
+      if (meal.likedBy && meal.likedBy.includes(userEmail)) {
+        return res
+          .status(400)
+          .json({ message: "You have already liked this meal" });
+      }
+
+      const update = {
+        $inc: { likes: 1 },
+        $push: { likedBy: userEmail },
+      };
+      const result = await upcomingMealsCollection.updateOne(
+        { _id: new ObjectId(mealId) },
+        update
+      );
+
       res.send(result);
     });
 
