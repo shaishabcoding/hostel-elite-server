@@ -537,6 +537,25 @@ async function run() {
       }
     );
 
+    app.put(
+      "/meals/upcoming/:id/publish",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const mealId = req.params.id;
+        const updatedMeal = await upcomingMealsCollection.findOne({
+          _id: new ObjectId(mealId),
+        });
+
+        await upcomingMealsCollection.deleteOne({
+          _id: new ObjectId(mealId),
+        });
+
+        const result = await mealCollection.insertOne(updatedMeal);
+        return res.send(result);
+      }
+    );
+
     app.put("/meals/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const meal = req.body;
