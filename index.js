@@ -307,7 +307,7 @@ async function run() {
     app.get("/meals", verifyToken, async (req, res) => {
       const limit = parseInt(req.query.limit, 10) || 10;
       const offset = parseInt(req.query.offset, 10) || 0;
-      const { category, minPrice, maxPrice } = req.query;
+      const { category, minPrice, maxPrice, search } = req.query; //todo: search => meal.title
 
       const matchStage = {};
 
@@ -325,6 +325,10 @@ async function run() {
 
       if (Object.keys(priceFilter).length > 0) {
         matchStage.price = priceFilter;
+      }
+
+      if (search) {
+        matchStage.title = { $regex: search, $options: "i" }; // Case-insensitive search
       }
 
       const sort = {};
