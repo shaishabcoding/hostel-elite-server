@@ -17,7 +17,7 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
-    strict: true,
+    strict: false,
     deprecationErrors: true,
   },
 });
@@ -132,21 +132,36 @@ async function run() {
     );
 
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
-      const { query } = req.query;
-      let result = [];
-      if (query) {
-        result = await userCollection
-          .find({
-            $or: [
-              { username: { $regex: query, $options: "i" } },
-              { email: { $regex: query, $options: "i" } },
-            ],
-          })
-          .toArray();
-      } else {
-        result = await userCollection.find().toArray();
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const offset = parseInt(req.query.offset, 10) || 0;
+      const { search } = req.query;
+
+      const matchStage = {};
+
+      if (search) {
+        matchStage.$text = { $search: search };
       }
-      res.send(result);
+
+      const users = await userCollection
+        .aggregate([
+          {
+            $match: matchStage, // Match by search query if specified
+          },
+          {
+            $sort: search ? { score: { $meta: "textScore" } } : { _id: 1 }, // Sort by text score if searching, otherwise by _id
+          },
+          {
+            $skip: offset, // Skip the first `offset` documents
+          },
+          {
+            $limit: limit, // Limit the number of documents returned
+          },
+        ])
+        .toArray();
+
+      const usersCount = await userCollection.countDocuments(matchStage); // Get count of matched documents
+
+      res.send({ users, usersCount });
     });
 
     app.get("/users/profile", verifyToken, async (req, res) => {
@@ -304,10 +319,10 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/meals", verifyToken, async (req, res) => {
+    app.get("/meals", async (req, res) => {
       const limit = parseInt(req.query.limit, 10) || 10;
       const offset = parseInt(req.query.offset, 10) || 0;
-      const { category, minPrice, maxPrice, search } = req.query; //todo: search => meal.title
+      const { category, minPrice, maxPrice, search } = req.query;
 
       const matchStage = {};
 
@@ -328,7 +343,7 @@ async function run() {
       }
 
       if (search) {
-        matchStage.title = { $regex: search, $options: "i" }; // Case-insensitive search
+        matchStage.$text = { $search: search };
       }
 
       const sort = {};
@@ -362,7 +377,39 @@ async function run() {
       res.send({ meals, mealsCount });
     });
 
-    app.get("/meals/upcoming", verifyToken, async (req, res) => {
+    app.get("/meals/admin", verifyToken, verifyAdmin, async (req, res) => {
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const offset = parseInt(req.query.offset, 10) || 0;
+
+      const sort = {};
+      if (req.query.sort === "likes") {
+        sort.likes = -1;
+      } else if ((req.query.sort = "reviews")) {
+        sort.reviewsCount = -1;
+      }
+      const meals = await mealCollection
+        .aggregate([
+          {
+            $addFields: {
+              reviewsCount: { $size: "$reviews" }, // Add a field for reviews count
+            },
+          },
+          {
+            $sort: sort, // Sort by the specified criteria
+          },
+          {
+            $skip: offset, // Skip the first `offset` documents
+          },
+          {
+            $limit: limit, // Limit the number of documents returned
+          },
+        ])
+        .toArray();
+      const mealsCount = await mealCollection.countDocuments();
+      res.send({ meals, mealsCount });
+    });
+
+    app.get("/meals/upcoming", async (req, res) => {
       const sort = {};
       if (req.query.sort === "likes") {
         sort.likes = -1;
